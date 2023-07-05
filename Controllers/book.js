@@ -58,7 +58,6 @@ exports.modifyBook = (req, res, next) => {
         });
 };
 
-
 exports.deleteBook = (req, res, next) => {
     Book.findOne({_id: req.params.id})
         .then(book => {
@@ -76,43 +75,56 @@ exports.deleteBook = (req, res, next) => {
         .catch(error => res.status(500).json({ error }))
 }
 
-
-exports.rateBook = (req, res) => {
-    //on récupère le livre à l'id correspondant
+exports.modifyRating = (req, res, next) => {
     Book.findOne({ _id: req.params.id })
-        .then(book => {
-            //on vérifie si l'utilisateur a déjà noté le libre
-            if (book.ratings.includes(rating => rating.userId == req.auth.userId)) {
-                res.status(404).json({ message: 'Vous avez déja noté ce livre' });
-            // on vérifie que la note soit comprise entre 1 et 5
-            } else if (1 > req.body.rating > 5) {
-                res.status(404).json({ message: 'La note soit être comprise entre 1 et 5' });
+        .then(async book => {
+            const user = req.body.userId;
+            if (user !== req.auth.userId) {
+            return res
+                .status(403)
+                .json({ error: "Vous ne pouvez pas voter pour ce livre." });
+            }
+    
+            const newRatingObject = {
+            userId: req.auth.userId,
+            grade: req.body.rating,
+            _id: req.body._id,
+            };
+    
+            if (book.ratings.some(rating => rating.userId === req.auth.userId)) {
+            return res
+                .status(403)
+                .json({ error: "Vous avez déjà voté pour ce livre." });
             } else {
-                //push le userId et le grade dans le tableau rattings de l'objet book
-                book.ratings.push({
-                    userId: req.auth.userId,
-                    grade: req.body.rating
-                });
-                //on initialise la somme de toutes les notes du tableau ratings
-                let sumGrades = 0
-                //pour chaque index du tableau ratings, on récupère la 'grade' et on l'ajoute à la somme des notes
-                for (let i = 0; i < book.ratings.length; i++) {
-                    let indexGrade = book.ratings[i].grade;
-                    sumGrades += indexGrade;
-                }
-                //on actualise la note moyenne en divisant la somme des notes par le nombre de notes dispo dans le tableau
-                book.averageRating = Math.round((sumGrades / book.ratings.length) * 100) / 100;
-                console.log(averageRating);
-                return book.save();
+            book.ratings.push(newRatingObject);
+            const allRatings = book.ratings.map(rating => rating.grade);
+            const newAverageRating = (
+                allRatings.reduce((acc, curr) => acc + curr, 0) / allRatings.length
+            ).toFixed(1);
+    
+            try {
+                await Book.updateOne(
+                { _id: req.params.id },
+                { ratings: book.ratings, averageRating: newAverageRating },
+                { new: true }
+                );
+    
+                const updatedBook = await Book.findOne({ _id: req.params.id });
+                return res.status(200).json(updatedBook);
+            } catch (error) {
+                throw error;
+            }
             }
         })
-        .then((book) => { res.status(200).json(book); })
-        .catch((error) => { res.status(404).json({ error: error }); });
-};
+        .catch(error => {
+            return res.status(500).json({ error });
+        });
+    };
 
 exports.getBestRating = (req, res, next) => {
     Book.find()
-        .sort({ averageRating: -1 }).limit(3) //-1 pour un ordre décroissant
+        .sort({ averageRating: -1 })//-1 pour un ordre décroissant
+        .limit(3)//N'affiche que les 3 plus grande note 
         .then(books => res.status(200).json(books))
         .catch(error => res.status(400).json({ error }));
     };
