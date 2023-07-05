@@ -42,15 +42,26 @@ exports.modifyBook = (req, res, next) => {
         imageUrl: `${req.protocol}://${req.get('host')}/images/resized-${req.file.filename.replace(/\.[^.]*$/, '')}.webp`,
     } : { ...req.body };
     delete bookObject._userId;
-    Book.findOne({_id: req.params.id})
-        .then((book) => {
-            if (book.userId != req.auth.userId) {
-                res.status(401).json({ message : 'Not authorized'});
+    Book.findOne({ _id: req.params.id })
+        .then(book => {
+            //on verifie si l'utilisateur correspond au userId de celui qui a crée le book
+            if (book.userId != req.auth.userId) { 
+                res.status(401).json({ message: 'Not authorized' });
             } else {
-                Book.updateOne({ _id: req.params.id}, 
-                    { ...bookObject, _id: req.params.id})
-                .then(() => res.status(200).json({message : 'Objet modifié!'}))
-                .catch(error => res.status(401).json({ error }));
+                if (req.file) {
+                    //S'il y a une nouvelle image, on supprime (unlink) et remplace (updateOne) l'ancienne
+                    const oldImg = book.imageUrl.split('/images/')[1];
+                    fs.unlink(`images/${oldImg}`, () => {
+                        Book.updateOne({ _id: req.params.id }, { ...bookObject, _id: req.params.id })
+                            .then(() => res.status(200).json({ message: "Livre modifié!" }))
+                            .catch(error => res.status(400).json({ error }));
+                    });
+                } else {
+                    //S'il n'y a pas de nouvelle image, on met à jour les infos du livres
+                    Book.updateOne({ _id: req.params.id }, { ...bookObject, _id: req.params.id })
+                        .then(() => res.status(200).json({ message: "Livre modifié!" }))
+                        .catch(error => res.status(400).json({ error }));
+                };
             }
         })
         .catch((error) => {

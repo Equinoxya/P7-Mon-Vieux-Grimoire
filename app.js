@@ -1,6 +1,12 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require("cors");
+const helmet = require('helmet');
+// securisation : configuration des en-têtes HTTP, la protection contre les attaques XSS, la désactivation de la mise en cache côté client, etc.
+//https://www.npmjs.com/package/helmet
+const mongoSanitize = require('express-mongo-sanitize');
+//plugin  contre les attaques d'injection de code malveillant dans les requêtes MongoDB
+//https://www.npmjs.com/package/express-mongo-sanitize
 const userRoutes = require('./Routes/user');
 const bookRoutes = require('./Routes/book')
 const path = require('path');
@@ -22,8 +28,27 @@ const corsOptions = {
 };
 //Un middleware est une fonction dans une application express, qui gère les réponses et les requêtes
 //Middleware pour empêcher les requêtes malvaillantes
+//on securise
+app.use(helmet({
+  contentSecurityPolicy: true,
+  crossOriginEmbedderPolicy: true,
+  crossOriginResourcePolicy: { policy: 'same-site' },
+  dnsPrefetchControl: true,
+  expectCt: true,
+  frameguard: { action: 'deny' },
+  hidePoweredBy: true,
+  hsts: true,
+  ieNoOpen: true,
+  noSniff: true,
+  originAgentCluster: true,
+  permittedCrossDomainPolicies: true,
+  referrerPolicy: true,
+  xssFilter: true
+}));
+
 app.use(express.json());//same body.parser
 app.use(cors(corsOptions))
+app.use(mongoSanitize());
 
 app.use('/api/auth', userRoutes);
 app.use('/api/books', bookRoutes);
