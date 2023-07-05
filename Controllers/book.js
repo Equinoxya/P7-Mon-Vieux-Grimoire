@@ -84,7 +84,6 @@ exports.modifyRating = (req, res, next) => {
                 .status(403)
                 .json({ error: "Vous ne pouvez pas voter pour ce livre." });
             }
-    
             const newRatingObject = {
             userId: req.auth.userId,
             grade: req.body.rating,
